@@ -379,6 +379,7 @@ sub type_name {
 sub transcript             { return $_[0]->Obj; }
 sub source                 { return $_[0]->gene ? $_[0]->gene->source : undef; }
 sub stable_id              { return $_[0]->Obj->stable_id;  }
+sub stable_id_version      { return $_[0]->Obj->stable_id_version;  }
 sub feature_type           { return $_[0]->Obj->type;       }
 sub version                { return $_[0]->Obj->version;    }
 sub logic_name             { return $_[0]->gene ? $_[0]->gene->analysis->logic_name : $_[0]->Obj->analysis->logic_name; }
@@ -415,7 +416,8 @@ sub get_families {
   return unless $translation;
 
   my $member = $self->database($cdb)->get_SeqMemberAdaptor->fetch_by_stable_id($translation->stable_id);
-  my $family = $self->database($cdb)->get_FamilyAdaptor->fetch_by_SeqMember($member);
+
+  my $family = $member && $self->database($cdb)->get_FamilyAdaptor->fetch_by_SeqMember($member);
 
   # munge data
   my $family_hash = {};
@@ -1180,6 +1182,7 @@ sub sort_oligo_data {
         'ftype'  => 'ProbeFeature',
         'fdb'    => 'funcgen',
         'ptype'  => $p_type, 
+        'array'  => $array,
       });
       
       $text .= '<p>';

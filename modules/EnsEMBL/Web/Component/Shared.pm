@@ -214,6 +214,7 @@ sub transcript_table {
     
     if ($page_type eq 'transcript') {
       my $gene_id  = $gene->stable_id;
+      my $gene_version = $gene->version ? $gene_id.'.'.$gene->version : $gene_id;
       my $gene_url = $hub->url({
         type   => 'Gene',
         action => 'Summary',
@@ -221,7 +222,7 @@ sub transcript_table {
       });
       $gene_html .= sprintf('<p>This transcript is a product of gene <a href="%s">%s</a> %s',
         $gene_url,
-        $gene_id,
+        $gene_version,
         $button
       );
     }
@@ -235,22 +236,22 @@ sub transcript_table {
     }   
 
     my @columns = (
-       { key => 'name',       sort => 'string',  title => 'Name'          },
-       { key => 'transcript', sort => 'html',    title => 'Transcript ID' },
-       { key => 'bp_length',  sort => 'numeric', label => 'bp', title => 'Length in base pairs'},
-       { key => 'protein',sort => 'html_numeric',label => 'Protein', title => 'Protein length in amino acids' },
-       { key => 'translation',sort => 'html',    title => 'Translation ID', 'hidden' => 1 },
-       { key => 'biotype',    sort => 'html',    title => 'Biotype', align => 'left' },
+       { key => 'name',       sort => 'string',  label => 'Name', title => 'Transcript name', class => '_ht'},
+       { key => 'transcript', sort => 'html',    label => 'Transcript ID', title => 'Stable ID', class => '_ht'},
+       { key => 'bp_length',  sort => 'numeric', label => 'bp', title => 'Transcript length in base pairs', class => '_ht'},
+       { key => 'protein',sort => 'html_numeric',label => 'Protein', title => 'Protein length in amino acids', class => '_ht'},
+       { key => 'translation',sort => 'html',    label => 'Translation ID', title => 'Protein information', 'hidden' => 1, class => '_ht'},
+       { key => 'biotype',    sort => 'html',    label => 'Biotype', title => encode_entities('<a href="/info/genome/genebuild/biotypes.html" target="_blank">Transcript biotype</a>'), align => 'left', class => '_ht'},
     );
 
-    push @columns, { key => 'ccds', sort => 'html', title => 'CCDS' } if $species =~ /^Homo_sapiens|Mus_musculus/;
+    push @columns, { key => 'ccds', sort => 'html', label => 'CCDS', class => '_ht' } if $species =~ /^Homo_sapiens|Mus_musculus/;
     my @rows;
    
     my %extra_links = (
       uniprot => { match => "^UniProt/[SWISSPROT|SPTREMBL]", name => "UniProt", order => 0 },
     );
     if ($species eq 'Homo_sapiens' && $sub_type eq 'GRCh37' ) {
-      $extra_links{refseq} = { match => "^RefSeq", name => "RefSeq", order => 1 };
+      $extra_links{refseq} = { match => "^RefSeq", name => "RefSeq", order => 1, title => "RefSeq transcripts with sequence similarity and genomic overlap"};
     }
     my %any_extras;
  
@@ -260,6 +261,7 @@ sub transcript_table {
       my $tsi               = $_->stable_id;
       my $protein           = '';
       my $translation_id    = '';
+      my $translation_ver   = '';
       my $protein_url       = '';
       my $protein_length    = '-';
       my $ccds              = '-';
@@ -277,6 +279,7 @@ sub transcript_table {
       if (my $translation = $_->translation) {
         $protein_url    = $hub->url({ type => 'Transcript', action => 'ProteinSummary', t => $tsi });
         $translation_id = $translation->stable_id;
+        $translation_ver = $translation->version ? $translation_id.'.'.$translation->version:$translation_id;
         $protein_length = $translation->length;
       }
 
@@ -322,7 +325,7 @@ sub transcript_table {
       if (my $mane_attrib = $trans_attribs->{$tsi}{$MANE_attrib_code}) {
         my $refseq_id = $mane_attrib->value;
         $refseq_url  = $hub->get_ExtURL_link($refseq_id, 'REFSEQ_MRNA', $refseq_id);
-        push @flags, helptip($mane_attrib->name, get_glossary_entry($hub, $mane_attrib->name)); 
+        push @flags, helptip($mane_attrib->name, get_glossary_entry($hub, 'MANE Select'));
       }
 
       (my $biotype_text = $_->biotype) =~ s/_/ /g;
@@ -339,7 +342,7 @@ sub transcript_table {
         transcript  => sprintf('<a href="%s">%s%s</a>', $url, $tsi, $version),
         bp_length   => $transcript_length,
         protein     => $protein_url ? sprintf '<a href="%s" title="View protein">%saa</a>', $protein_url, $protein_length : 'No protein',
-        translation => $protein_url ? sprintf '<a href="%s" title="View protein">%s</a>', $protein_url, $translation_id : '-',
+        translation => $protein_url ? sprintf '<a href="%s" title="View protein">%s</a>', $protein_url, $translation_ver : '-',
         biotype     => $self->colour_biotype($biotype_text, $_),
         ccds        => $ccds,
         %extras,
@@ -360,12 +363,14 @@ sub transcript_table {
     foreach my $k (sort { $extra_links{$a}->{'order'} cmp
                           $extra_links{$b}->{'order'} } keys %any_extras) {
       my $x = $extra_links{$k};
-      push @columns, { key => $k, sort => 'html', title => $x->{'name'}};
+      push @columns, { key => $k, sort => 'html', title => $x->{'title'}, label => $x->{'name'}, class => '_ht'};
     }
     if ($species eq 'Homo_sapiens' && $sub_type ne 'GRCh37') {
-      push @columns, { key => 'refseq_match', sort => 'html', title => 'RefSeq Match' };
-    }  
-    push @columns, { key => 'flags', sort => 'html', title => 'Flags' };
+      push @columns, { key => 'refseq_match', sort => 'html', label => 'RefSeq Match', title => 'RefSeq transcripts that match 100% across the sequence, intron/exon structure and UTRs', class => '_ht' };
+    }
+
+    my $title = encode_entities('<a href="/info/genome/genebuild/transcript_quality_tags.html" target="_blank">Tags</a>');
+    push @columns, { key => 'flags', sort => 'html', label => 'Flags', title => $title, class => '_ht'};
 
     ## Additionally, sort by CCDS status and length
     while (my ($k,$v) = each (%biotype_rows)) {
@@ -400,6 +405,7 @@ sub transcript_table {
 
   if(@proj_attrib && $self->hub->species_defs->IS_STRAIN_OF) {
     (my $ref_gene = $proj_attrib[0]->value) =~ s/\.\d+$//;
+    my $strain_type = $hub->species_defs->STRAIN_TYPE;
     
     if($ref_gene) {
       #copied from apache/handler, just need this one line to get the matching species for the stable_id (use ensembl_stable_id database)
@@ -415,13 +421,13 @@ sub transcript_table {
           action  => 'Summary',
           g       => $ref_gene
         });
-        $table->add_row('Reference strain equivalent', qq{<a href="$ref_url">$ref_gene_name</a>});
+        $table->add_row("Reference $strain_type equivalent", qq{<a href="$ref_url">$ref_gene_name</a>});
       }
       else {
-        $table->add_row('Reference strain equivalent',"None");
+        $table->add_row("Reference $strain_type equivalent","None");
       }  
     } else {
-      $table->add_row('Reference strain equivalent',"None");
+      $table->add_row("Reference $strain_type equivalent","None");
     }
 
   }
@@ -493,7 +499,7 @@ sub about_feature {
     
     my $protein_url = $hub->url({
       type   => 'Gene',
-      action => 'Family',
+      action => $SiteDefs::GENE_FAMILY_ACTION,
       g      => $gene->stable_id
     });
 
@@ -907,7 +913,6 @@ sub check_for_missing_species {
 
   foreach (keys %{$align_details->{'species'}}) {
     next if $_ eq $species;
-
     if ($align_details->{'class'} !~ /pairwise/
         && ($self->param(sprintf 'species_%d_%s', $align, lc) || 'off') eq 'off') {
       push @skipped, $species_defs->production_name_mapping($_) unless ($args->{ignore} && $args->{ignore} eq 'ancestral_sequences');
@@ -915,9 +920,9 @@ sub check_for_missing_species {
     elsif (defined $slice and !$aligned_species{$_} and $_ ne 'ancestral_sequences') {
       my $sp_prod = $hub->species_defs->production_name_mapping($_);
 
-      my $key = ($species_info->{$sp_prod}->{strain_collection} && $species_info->{$sp_prod}->{strain} !~ /reference/) ? 
-              'strains' : 'species';
-      push @{$missing_hash->{$key}}, $species_info->{$sp_prod}->{common};
+      my $key = ($species_info->{$sp_prod}{strain_group} && $species_info->{$sp_prod}{strain} !~ /reference/) ? 
+              $species_info->{$sp_prod}{strain_type}.'s' : 'species';
+      push @{$missing_hash->{$key}}, $species_info->{$sp_prod}{common};
       push @missing, $species_defs->production_name_mapping($_);
     }
   }
@@ -950,7 +955,8 @@ sub check_for_missing_species {
 
       if ($missing_hash->{strains}) {
         $count = scalar @{$missing_hash->{strains}};
-        $str .= "$count strain";
+        my $strain_type = $hub->species_defs->STRAIN_TYPE || 'strain';
+        $str .= "$count $strain_type";
         $str .= 's' if $count > 1;
       }
 

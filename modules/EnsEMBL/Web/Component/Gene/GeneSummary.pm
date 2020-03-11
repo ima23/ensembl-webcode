@@ -81,7 +81,7 @@ sub content {
     my $template  = '<p>This gene is a member of the %s CCDS set: %s</p>';
     my $sp_name   = $species_defs->DISPLAY_NAME; 
     ## FIXME Hack for e86 mouse strains
-    if ($species_defs->STRAIN_COLLECTION && $species_defs->SPECIES_STRAIN !~ /reference/) {
+    if ($species_defs->STRAIN_GROUP && $species_defs->SPECIES_STRAIN !~ /reference/) {
       $template = 'This gene is similar to a CCDS gene on %s: %s';
       (my $bio_name = $species_defs->SPECIES_SCIENTIFIC_NAME) =~ s/ /_/;
       $sp_name  = sprintf '%s %s', $species_defs->get_config($bio_name, 'DISPLAY_NAME'), $species_defs->get_config($bio_name, 'ASSEMBLY_VERSION');
@@ -166,7 +166,9 @@ sub content {
   # add a row to the table
   $table->add_row('LRG', $lrg_html) if $lrg_html;
 
-  $table->add_row('Ensembl version', $object->stable_id.'.'.$object->version);
+  if ($object->version) {
+    $table->add_row('Ensembl version', $object->stable_id_version);
+  }
 
   ## Link to another assembly, e.g. previous archive
   my $current_assembly = $hub->species_defs->ASSEMBLY_VERSION;
@@ -256,7 +258,7 @@ sub content {
   my $cv_terms = $object->get_cv_terms;
   if (@$cv_terms) {
     my $first = shift @$cv_terms;
-    my $text = qq(<p>$first [<a href="//vega.sanger.ac.uk/info/about/annotation_attributes.html" target="external" class="constant">Definitions</a>]</p>);
+    my $text = qq(<p>$first [<a href="/info/website/glossary.html class="constant">Definitions</a>]</p>);
     foreach my $next (@$cv_terms) {
       $text .= "<p>$next</p>";
     }

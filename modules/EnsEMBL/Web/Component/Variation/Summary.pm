@@ -36,6 +36,9 @@ sub _init {
 
 sub content {
   my $self          = shift;
+
+  return if(!$self->object);
+
   my $hub           = $self->hub;
   my $object        = $self->object;
   my $variation     = $object->Obj;
@@ -106,7 +109,7 @@ sub feature_summary {
                       $phenotype_url, 
                       $avail->{has_ega}, 
                       $avail->{has_ega} eq "1" ? "phenotype" : "phenotypes"
-                  ) if($avail->{has_ega});  
+                  ) if($avail->{has_ega} && $avail->{has_locations});
   push @str_array, sprintf('is mentioned in <a class="dynamic-link" href="%s">%s %s</a>', 
                       $citation_url, 
                       $avail->{has_citation}, 
@@ -370,7 +373,10 @@ sub synonyms {
       @urls = map { s/%23/#/; $_ } map $hub->get_ExtURL_link($_, 'OMIM', $url_ids{$_}), @ids;
     }
     elsif ($db =~ /clinvar/i) {
-      @urls = map $hub->get_ExtURL_link($_, 'CLINVAR', $_), @ids;
+      foreach (@ids) {
+        next if /^RCV/; # don't display RCVs as synonyms
+        push @urls, $hub->get_ExtURL_link($_, 'CLINVAR', $_);
+      }
     }
     elsif ($db =~ /Uniprot/) {
       push @urls, $hub->get_ExtURL_link($_, 'UNIPROT_VARIATION', $_) for @ids;
@@ -460,7 +466,7 @@ sub alleles {
 
       my $ht =
         '<b>Highest population Minor Allele Frequency</b><br />Highest minor allele frequency observed in any population'.
-        ($species eq 'Homo_sapiens' ? ' from 1000 Genomes Phase 3, ESP and ExAC' : '');
+        ($species eq 'Homo_sapiens' ? ' including 1000 Genomes Phase 3, ESP and gnomAD' : '');
 
       my $allele_hover_text;
       if(scalar @$max_alleles > 1) {
@@ -580,7 +586,7 @@ sub to_VCF {
   my $vcf_rep = $vf->to_VCF_record();
   return unless $vcf_rep && @$vcf_rep;
   
-  return '<span style="font-family:Courier,monospace;white-space:nowrap;margin-left:5px;padding:2px 4px;background-color:#F6F6F6">'.join("&nbsp;&nbsp;", map {encode_entities($_)} @{$vcf_rep}[0..4]).'</span>';
+  return '<span style="font-family:Courier,monospace;word-break:break-all;margin-left:5px;padding:2px 4px;background-color:#F6F6F6">'.join("&nbsp;&nbsp;", map {encode_entities($_)} @{$vcf_rep}[0..4]).'</span>';
 }
 
 sub location {
@@ -1036,15 +1042,19 @@ sub allele_registry_synonyms_urls {
 
   return []  if (!$hgvsg);
 
+  my $allele_synonyms = $object->get_allele_synonyms();
+  return [] if (!$allele_synonyms);
+
+  my %ar_lu = map {$_->hgvs_genomic => $_->name } @$allele_synonyms;
+
   my $hgvs_ar;
 
   # For each allele, for each HGVSg, lookup caid
   foreach my $allele (keys %$hgvsg) {
     next if $hgvsg->{$allele} !~ /^NC_/;
-    my $ar_results = $object->get_allele_registry_data($hgvsg->{$allele});
-    next if (! %$ar_results);
+    next if (! defined $ar_lu{$hgvsg->{$allele}});
     $hgvs_ar->{$allele} = [$hgvsg->{$allele},
-                           $ar_results->{'caid'},
+                           $ar_lu{$hgvsg->{$allele}},
                           ];
   }
   return [] if (!$hgvs_ar);

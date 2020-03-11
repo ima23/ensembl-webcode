@@ -38,7 +38,9 @@ sub _init {
   $self->mcacheable(0);
 
   my $alignments_session_data = $hub->session ? $hub->session->get_record_data({'type' => 'view_config', 'code' => 'alignments_selector'}) : {};
-  %{$self->{'viewconfig'}{$hub->type}->{_user_settings}} = (%{$self->{'viewconfig'}{$hub->type}->{_user_settings}}, %$alignments_session_data);
+  if (scalar keys %{$alignments_session_data} > 0 && $alignments_session_data->{$hub->species}) {
+    %{$self->{'viewconfig'}{$hub->type}->{'_user_settings'}} = (%{$self->{'viewconfig'}{$hub->type}->{'_user_settings'}}, %{$alignments_session_data->{$hub->species}});
+  }
   $self->SUPER::_init(100);
 }
 
@@ -516,9 +518,14 @@ sub _get_target_slice_table {
       #HACK - have a guess based on the mlss name. Better to have this in the mlss_tag table in the database
     if ($method_link_species_set->name =~ /mammals/) {
       $other_species = "homo_sapiens";
-    } elsif ($method_link_species_set->name =~ /fish/) {
+    } 
+    elsif ($method_link_species_set->name =~ /fish/) {
       $other_species = "oryzias_latipes";
-    } else {
+    }
+    elsif ($method_link_species_set->name =~ /pig/) {
+      $other_species = "sus_scrofa";
+    } 
+    else {
       #sauropsids
       $other_species = "gallus_gallus";
     }

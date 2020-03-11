@@ -586,12 +586,17 @@ sub ancestor {
 
   ### Variation_object_calls 
   ### a
-  ### Example    : $object->ancestral_allele;
+  ### Example    : $object->get_selected_variation_feature->ancestral_allele;
   ### Description: returns the ancestral allele for the variation
   ### Returns String
 
   my $self = shift;
-  return $self->vari->ancestral_allele;
+
+  my $anc_allele;
+  if($self->get_selected_variation_feature) {
+    $anc_allele = $self->get_selected_variation_feature->ancestral_allele;
+  }
+  return $anc_allele;
 }
 
 
@@ -1897,6 +1902,12 @@ sub get_allele_registry_data {
   my ($caid) = $ref->{'@id'} =~ m#/(CA\d+)$#;
   return {} if (! $caid);
   return {'caid' => $caid, 'caid_uri' => $ref->{'@id'}};
+}
+
+# Get all the allele synonyms for a variation
+sub get_allele_synonyms {
+  my $self = shift;
+  return $self->vari->get_all_AlleleSynonyms();
 }
 
 sub get_hgvsg {
